@@ -1,4 +1,4 @@
-FreeRTOS-Template
+USART-Example
 =================
 
-eclipse project template for FreeRTOS with STM32F4
+usart example with stm32f4 it send character sequence every 1 sec with 2 usart
