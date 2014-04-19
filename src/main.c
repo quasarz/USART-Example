@@ -12,7 +12,9 @@
 /* Private function prototypes -----------------------------------------------*/
 static void prvPeriphClockConfig(void);
 static void prvGPIOConfig(void);
-void vLEDTask(void*);
+static void prvUSART1Config(void);
+static void prvUSART3Config(void);
+void vIdleTask(void*);
 /* Private functions ---------------------------------------------------------*/
 
 /**
@@ -23,13 +25,17 @@ void vLEDTask(void*);
 int main(void) {
 	prvPeriphClockConfig();
 	prvGPIOConfig();
-	xTaskCreate( vLEDTask, ( signed char * ) "LED", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY, NULL );
+	prvUSART1Config();
+	prvUSART3Config();
+	xTaskCreate( vIdleTask, ( signed char * ) "Idle Task", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY, NULL );
 	vTaskStartScheduler();
 	return 0;
 }
 
 static void prvPeriphClockConfig(void) {
-	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA | RCC_AHB1Periph_GPIOD, ENABLE);
+	RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOB | RCC_AHB1Periph_GPIOD, ENABLE);
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART3, ENABLE);
 }
 
 static void prvGPIOConfig(void) {
@@ -43,12 +49,74 @@ static void prvGPIOConfig(void) {
 	GPIO_Init(GPIOD, &xGPIODInit);
 }
 
+static void prvUSART1Config(void) {
 
-void vLEDTask( void *pvParameters ) {
+	GPIO_InitTypeDef  xGPIOBInit;
+	xGPIOBInit.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
+	xGPIOBInit.GPIO_Mode = GPIO_Mode_AF;
+	xGPIOBInit.GPIO_Speed = GPIO_Speed_2MHz;
+	xGPIOBInit.GPIO_OType = GPIO_OType_PP;
+	xGPIOBInit.GPIO_PuPd = GPIO_PuPd_UP;
+	GPIO_Init(GPIOB, &xGPIOBInit);
+
+	GPIO_PinAFConfig(GPIOB, GPIO_PinSource6, GPIO_AF_USART1);
+	GPIO_PinAFConfig(GPIOB, GPIO_PinSource7, GPIO_AF_USART1);
+
+	USART_InitTypeDef xUART1Init;
+	xUART1Init.USART_BaudRate = 9600;
+	xUART1Init.USART_WordLength = USART_WordLength_8b;
+	xUART1Init.USART_StopBits = USART_StopBits_1;
+	xUART1Init.USART_Parity = USART_Parity_No;
+	xUART1Init.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+	xUART1Init.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+	USART_Init(USART1, &xUART1Init);
+
+	USART_Cmd(USART1, ENABLE);
+}
+
+static void prvUSART3Config(void) {
+
+	GPIO_InitTypeDef  xGPIODInit;
+	xGPIODInit.GPIO_Pin = GPIO_Pin_8 | GPIO_Pin_9;
+	xGPIODInit.GPIO_Mode = GPIO_Mode_AF;
+	xGPIODInit.GPIO_Speed = GPIO_Speed_50MHz;
+	xGPIODInit.GPIO_OType = GPIO_OType_PP;
+	xGPIODInit.GPIO_PuPd = GPIO_PuPd_UP;
+	GPIO_Init(GPIOD, &xGPIODInit);
+
+	GPIO_PinAFConfig(GPIOD, GPIO_PinSource8, GPIO_AF_USART3);
+	GPIO_PinAFConfig(GPIOD, GPIO_PinSource9, GPIO_AF_USART3);
+
+	USART_InitTypeDef xUART3Init;
+	xUART3Init.USART_BaudRate = 9600;
+	xUART3Init.USART_WordLength = USART_WordLength_8b;
+	xUART3Init.USART_StopBits = USART_StopBits_1;
+	xUART3Init.USART_Parity = USART_Parity_No;
+	xUART3Init.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+	xUART3Init.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+	USART_Init(USART3, &xUART3Init);
+
+	USART_Cmd(USART3, ENABLE);
+}
+
+void vIdleTask( void *pvParameters ) {
 	const portTickType xDelay = 1000;
+	char data = 'A';
+	int count = 0;
 	while(1) {
-		GPIO_ToggleBits(GPIOD, GPIO_Pin_12);
+		GPIO_ToggleBits(GPIOD, GPIO_Pin_14);
+		USART_SendData(USART1, data);
+		while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET);
+		USART_SendData(USART3, data + 10);
+		while (USART_GetFlagStatus(USART3, USART_FLAG_TC) == RESET);
 	    vTaskDelay(xDelay);
+	    count++;
+	    if(count % 5 == 0) {
+	    	data = 'A';
+	    }
+	    else {
+	    	data++;
+	    }
 	}
 }
 
